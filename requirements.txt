@@ -2,3 +2,4 @@ requests
 pandas
 questdb[dataframe]
 pytz
+numpy
