@@ -1,8 +1,13 @@
 import logging
+import json
 import os
+import pandas as pd
+import pytz
 import re
+import time
 
-from datetime import datetime, timedelta
+from datetime import datetime
+from questdb.ingress import Sender, IngressError, TimestampNanos
 
 ### LOG HANDLING ###
 
@@ -87,24 +92,19 @@ def list_files(base_dir, start_date: str = None, end_date: str = None) -> list[t
     return files_to_import, list(prefixes)
 
 
-def read_state(state_file_path: str = 'state.txt') -> dict[str, str]:
+def read_state(state_file_path: str = 'state.json') -> dict[str, list[str]]:
     """Reads the state file to determine the last imported file for each subfolder."""
     state = {}
     if os.path.exists(state_file_path):
         with open(state_file_path, 'r') as state_file:
-            for line in state_file:
-                subfolder, last_file = line.strip().split('=', 1)
-                state[subfolder] = last_file
+            json.load(state_file)
     return state
 
 
-def write_state(subfolder, last_file, state_file_path: str = 'state.txt'):
+def write_state(state_data, state_file_path: str = 'state.json'):
     """Writes the last imported file for a subfolder to the state file."""
-    state = read_state()
-    state[subfolder] = last_file
     with open(state_file_path, 'w') as state_file:
-        for sub, file in state.items():
-            state_file.write(f"{sub}={file}\n")
+        json.dump( state_data, state_file )
 
 
 def determine_format_type(file_path):
@@ -120,46 +120,87 @@ def determine_format_type(file_path):
         return 'unknown'
 
 
-def import_files_to_questdb(files, delete_after_import=False):
+def import_files_to_questdb(files, questdb_url:str, questdb_port:str, state_file:str,
+                                delete_after_import=False, max_retry:int = 50 ):
     """Imports a batch of files into QuestDB with error handling and optional deletion."""
-    successfully_imported = []
-    for file in files:
-        try:
-            with open(file, 'r', encoding='utf-8') as f:
-                content = f.read()
-                timestamp = parse_timestamp_from_filename(file.name)
-                format_type = determine_format_type(file)
 
-                data = {
-                    'id': str(file),
-                    'provider': file.parent.name,
-                    'timestamp': timestamp,
-                    'format_type': format_type,
-                    'content': content
-                }
-                response = requests.post(QUESTDB_API_URL, data=f"""
-                INSERT INTO raw_data VALUES (
-                    '{data['id']}',
-                    '{data['provider']}',
-                    '{data['timestamp']}',
-                    '{data['format_type']}',
-                    '{data['content'].replace("'", "''")}'
-                )
-                """)
-                if response.status_code != 200:
-                    raise Exception(
-                        f"Database insertion failed: {response.text}")
-                successfully_imported.append(file)
-                write_state(str(file.parent), str(file))
-        except Exception as e:
-            log_error(file, str(e))
-            print(f"Error processing {file}: {e}")
+    file_to_be_deleted = {}
+    state = read_state(state_file)
+    logger.info( f' Read state: {state}' )
+
+    logger.info('        Constructing dataframe to import to QuestDB')
+    dfDict = {}
+    for file in files:
+        filename = file[0]
+        filepath = file[1]
+        prefix = file[2]
+        
+        # check from state file
+        if prefix not in state:
+            state[prefix] = []
+
+        if filename not in state[prefix]:
+            logger.warning(f'       {filename} has already imported, skip!!' )
+            continue
+
+        if prefix not in dfDict:
+            df = pd.DataFrame(columns=['id', 'provider', 'timestamp', 'format', 'content'])
+
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+            try:
+                timestamp = parse_timestamp_from_filename(file.name)
+            except ValueError:
+                logger.error( f'        cannot import filename = {filename} because cannot get timestamp from filename!!!!' )
+                continue
+            format_type = determine_format_type(file)
+
+            # Define Eastern Time (ET) timezone
+            eastern = pytz.timezone('US/Eastern')
+
+            # Localize the datetime object to Eastern Time
+            dt = datetime.strptime(timestamp, '%Y%m%d_%H%M%S')
+            localized_dt = eastern.localize( dt )
+
+            dfDict[prefix].loc[len(df)].append( [ str(filename), prefix, localized_dt.isoformat() , format_type, content ])
+
+            file_to_be_deleted[prefix].append( filepath )
+
+    logger.info(f'        Dataframe is created with {len(df)} rows, input contains {len(files)} files')
+    # import with python client
+    retry = 0
+    success = False
+    while not success and retry < max_retry:
+        try:
+            conf = f'https::addr={questdb_url}:{questdb_port};'
+            for prefix in dfDict:
+                with Sender.from_conf(conf) as sender:
+                    sender.dataframe(
+                        df,
+                        table_name=prefix, 
+                        symbols=False, 
+                        at='timestamp') 
+        except IngressError as e:
+            logger.exception(f'        Error during send dataframe to QuestDB: {e!r}')
+            # wait and retry
+            time.sleep( 10 )
+        else:
+            success = True
 
     # Delete files if specified
-    if delete_after_import:
-        for file in successfully_imported:
-            try:
-                os.remove(file)
-                print(f"Deleted: {file}")
-            except OSError as e:
-                log_error(file, f"Failed to delete {file}: {e}")
+    if success:
+        for prefix in file_to_be_deleted:
+            if prefix not in state:
+                state[prefix] = file_to_be_deleted[prefix]
+            else:
+                state[prefix].extend(file_to_be_deleted)
+            if delete_after_import:
+                for filepath in file_to_be_deleted[prefix]:
+                    try:
+                        os.remove(filepath)
+                    except OSError as e:
+                        logger.warning(f"       Failed to delete {file}: {e}")
+        write_state(state,state_file)
+        logger.info(f"       Complete insert files to QuestDB")
+    else:
+        logger.error(f"       Fail to insert files to QuestDB. Please check the log")

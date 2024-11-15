@@ -1,12 +1,14 @@
 import argparse
 import logging
 
-from helpers import list_files, read_state, write_state
+from helpers import list_files, read_state, import_files_to_questdb
 from questdb_helpers import get_tables, create_table
 
 # Configuration
 BASE_DIR = 'path/to/your/data/directory'
-QUESTDB_API_URL = 'http://165.22.111.39:9000/exec'
+QUESTDB_API_URL = 'http://165.22.111.39'
+QUESTDB_API_PORT = '9000'
+QUESTDB_API_EXEC_URL = f'{QUESTDB_API_URL}:{QUESTDB_API_PORT}/exec'
 BATCH_SIZE = 1000
 IMPORT_LOG_FILE = 'import_log.txt'  # Tracks imported files to avoid duplicates
 ERROR_LOG_FILE = 'error_log.txt'    # Logs files that encountered errors
@@ -45,8 +47,6 @@ def main(delete_after_import=False, start_date=None, end_date=None):
     logger.info( f'========== Starting importing file with argument ({delete_after_import}, {start_date}, {end_date}) ==========' )
 
     # read state file to determine last imported file per subfolder
-    state = read_state(STATE_FILE)
-    logger.info( f' Read state: {state}' )
     files, table_names = list_files(BASE_DIR, start_date, end_date)
     logger.info( f' Get files to be imported: {len(files)} files' )
 
@@ -55,10 +55,10 @@ def main(delete_after_import=False, start_date=None, end_date=None):
         return
     
     # create table for all table_names
-    current_tables = get_tables( QUESTDB_API_URL )
+    current_tables = get_tables( QUESTDB_API_EXEC_URL )
     for table_name in table_names:
         if table_name not in current_tables:
-            create_table( table_name, QUESTDB_API_URL )
+            create_table( table_name, QUESTDB_API_EXEC_URL )
             logger.info( f'     Table, {table_name}, is created.' )
         else:
             logger.info( f'     Table, {table_name}, already existed.' )
@@ -66,7 +66,7 @@ def main(delete_after_import=False, start_date=None, end_date=None):
     for i in range(0, len(files), BATCH_SIZE):
         batch = files[i:i + BATCH_SIZE]
         logger.info(f'  working on batch( {i}, {i+BATCH_SIZE})' )
-        import_files_to_questdb(batch, state, delete_after_import)
+        import_files_to_questdb(batch, QUESTDB_API_URL, QUESTDB_API_PORT, STATE_FILE, delete_after_import)
         logger.info(
             f"Imported batch {i // BATCH_SIZE + 1} of {len(files) // BATCH_SIZE + 1}")
 
