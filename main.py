@@ -87,4 +87,5 @@ if __name__ == "__main__":
                         help='End date for importing files (format: YYYY-MM-DD). If not specified, will import until the latest file.')
     args = parser.parse_args()
 
-    main(delete_after_import=args.delete)
+    main(delete_after_import=args.delete,
+         start_date=args.start_date, end_date=args.end_date)
