@@ -7,7 +7,7 @@ import pytz
 import re
 import time
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from questdb.ingress import Sender, IngressError, TimestampNanos
 
 ### LOG HANDLING ###
@@ -44,9 +44,26 @@ def parse_timestamp_from_filename(filename):
     """Parses the timestamp from the filename and converts it to a datetime object."""
 
     match = TIMESTAMP_PATTERN.search(filename)
+    window_tick_match = re.search(r"_(\d+)\.xml$", filename)
 
     if match:
-        return datetime.strptime(match.group(1), '%Y%m%d-%H%M%S')
+        dt = datetime.strptime(match.group(1), '%Y%m%d-%H%M%S')
+        # Define Eastern Time (ET) timezone
+        eastern = pytz.timezone('US/Eastern')
+
+        # Localize the datetime object to Eastern Time
+        localized_dt = eastern.localize(dt)
+        return localized_dt
+    elif window_tick_match:
+        windows_tick = int(window_tick_match.group(1))
+        base_date = datetime(1, 1, 1)
+        dt = base_date + timedelta(microseconds=windows_tick // 10)
+        # Define Eastern Time (ET) timezone
+        eastern = pytz.timezone('US/Eastern')
+
+        # Localize the datetime object to Eastern Time
+        localized_dt = eastern.localize(dt)
+        return localized_dt
     else:
         raise ValueError("Timestamp not found or invalid in filename")
 
@@ -61,6 +78,13 @@ def list_files(base_dir, start_date: str = None, end_date: str = None) -> list[t
     start_date = datetime.strptime(
         start_date, '%Y-%m-%d') if start_date else None
     end_date = datetime.strptime(end_date, '%Y-%m-%d') if end_date else None
+
+    # Define Eastern Time (ET) timezone
+    eastern = pytz.timezone('US/Eastern')
+    if start_date:
+        start_date = eastern.localize(start_date)
+    if end_date:
+        end_date = eastern.localize(end_date)
 
     files_to_import = []
     prefixes = set()
@@ -172,14 +196,8 @@ def import_files_to_questdb(files, questdb_host: str, questdb_port: str, state_f
                     f'       {filename} has unsupported format, skip!!')
                 continue
 
-            # Define Eastern Time (ET) timezone
-            eastern = pytz.timezone('US/Eastern')
-
-            # Localize the datetime object to Eastern Time
-            localized_dt = eastern.localize(timestamp)
-
             dfDict[prefix].loc[len(df)] = [str(
-                filename), prefix, np.datetime64(localized_dt), format_type, content]
+                filename), prefix, np.datetime64(timestamp), format_type, content]
 
             file_to_be_deleted[prefix].append(filepath)
             filename_import[prefix].append(filename)
@@ -193,6 +211,7 @@ def import_files_to_questdb(files, questdb_host: str, questdb_port: str, state_f
         try:
             conf = f'http::addr={questdb_host}:{questdb_port};'
             for prefix in dfDict:
+                df = dfDict[prefix]
                 with Sender.from_conf(conf) as sender:
                     sender.dataframe(
                         df,
@@ -213,7 +232,6 @@ def import_files_to_questdb(files, questdb_host: str, questdb_port: str, state_f
                 state[prefix] = filename_import[prefix]
             else:
                 state[prefix].extend(filename_import[prefix])
-            print(state)
             if delete_after_import:
                 for filepath in file_to_be_deleted[prefix]:
                     try:

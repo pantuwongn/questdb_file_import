@@ -9,7 +9,9 @@ BASE_DIR = 'C:\\Users\\svc_gkcoop2\\Downloads\\NEWDATA'
 QUESTDB_API_HOST = 'gkcoop2'
 QUESTDB_API_PORT = '9000'
 QUESTDB_API_EXEC_URL = f'http://{QUESTDB_API_HOST}:{QUESTDB_API_PORT}/exec'
-BATCH_SIZE = 1000
+
+# we will ingest files with BATCH__SIZE at once
+BATCH_SIZE = 300  # from experiment, if we set more than this, it might cause buffer error
 # Persistent state for last imported file per subfolder
 STATE_FILE = 'state.json'
 
