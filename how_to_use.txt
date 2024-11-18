@@ -9,8 +9,29 @@
 
     python main.py --delete --start-date=2024-01-01
 
+===============================================================================================================================================================
 
-Use by docker 
+Run on WSL
+1. Instaill Ubuntu
+    wsl --install Ubuntu
+
+2. Update packages and install python3-pip
+    sudo apt update -y
+    sudo apt install -y python3-pip
+3. Instuall dependency by
+     python -m pip install -r requirements.txt
+
+4. State import by
+    python main.py [--delete] [--start-date=YYYY-MM-DD] [--end-date=YYYY-MM-DD]
+
+    where each argument ( [xxxx] ) is optional. For example, if you need to delete file after import, and need to insert from 2024-01-01
+    you can call
+
+    python main.py --delete --start-date=2024-01-01
+
+===============================================================================================================================================================
+
+Run by docker 
 1. Build docker container
     docker-compose build
 

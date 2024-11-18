@@ -5,7 +5,8 @@ from helpers import list_files, read_state, import_files_to_questdb
 from questdb_helpers import get_tables, create_table
 
 # Configuration
-BASE_DIR = 'C:\\Users\\svc_gkcoop2\\Downloads\\NEWDATA'
+# BASE_DIR = 'C:\\Users\\svc_gkcoop2\\Downloads\\NEWDATA'
+BASE_DIR = '/mnt/c/Users/svc_gkcoop2/Downloads/NEWDATA'
 QUESTDB_API_HOST = 'gkcoop2'
 QUESTDB_API_PORT = '9000'
 QUESTDB_API_EXEC_URL = f'http://{QUESTDB_API_HOST}:{QUESTDB_API_PORT}/exec'
@@ -46,7 +47,10 @@ def main(delete_after_import=False, start_date=None, end_date=None):
     """Main entry point for importing files to QuestDB."""
 
     logger.info(f'========== Starting importing file with argument =========')
-    logger.info('   parameters = {delete_after_import}, {start_date}, {end_date}')
+    logger.info(f'--delete = {delete_after_import}')
+    logger.info(f'--start-date = {start_date}')
+    logger.info(f'--end-date = {end_date}')
+    logger.info('=======================================================')
 
     # read state file to determine last imported file per subfolder
     files, table_names = list_files(BASE_DIR, start_date, end_date)
