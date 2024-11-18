@@ -45,8 +45,8 @@ logger.addHandler(file_handler)
 def main(delete_after_import=False, start_date=None, end_date=None):
     """Main entry point for importing files to QuestDB."""
 
-    logger.info(f'========== Starting importing file with argument ({
-                delete_after_import}, {start_date}, {end_date}) ==========')
+    logger.info(f'========== Starting importing file with argument =========')
+    logger.info('   parameters = {delete_after_import}, {start_date}, {end_date}')
 
     # read state file to determine last imported file per subfolder
     files, table_names = list_files(BASE_DIR, start_date, end_date)

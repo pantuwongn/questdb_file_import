@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    image: questdb-file-import:latest
+    container_name: questdb-file-import-container
+    volumes:
+      - .:/app
