@@ -8,3 +8,14 @@
     you can call
 
     python main.py --delete --start-date=2024-01-01
+
+
+Use by docker 
+1. Build docker container
+    docker-compose build
+
+2. Start import by
+    docker-compose run app main.py [--delete] [--start-date=YYYY-MM-DD] [--end-date=YYYY-MM-DD]
+
+    where each argument ( [xxxx] ) is optional. For example, if you need to delete file after import, and need to insert from 2024-01-01
+    you can call
