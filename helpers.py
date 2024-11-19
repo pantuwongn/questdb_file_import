@@ -8,7 +8,7 @@ import re
 import time
 
 from datetime import datetime, timedelta
-from questdb.ingress import Sender, IngressError, TimestampNanos
+from questdb_helpers import import_csv
 
 ### LOG HANDLING ###
 
@@ -149,7 +149,7 @@ def determine_format_type(file_path):
         return 'unknown'
 
 
-def import_files_to_questdb(files, questdb_host: str, questdb_port: str, state_file: str,
+def import_files_to_questdb(files, questdb_url, state_file: str,
                             delete_after_import=False, max_retry: int = 50):
     """Imports a batch of files into QuestDB with error handling and optional deletion."""
 
@@ -197,7 +197,7 @@ def import_files_to_questdb(files, questdb_host: str, questdb_port: str, state_f
                 continue
 
             dfDict[prefix].loc[len(df)] = [str(
-                filename), prefix, np.datetime64(timestamp), format_type, content]
+                filename), prefix, timestamp.isoformat(), format_type, content]
 
             file_to_be_deleted[prefix].append(filepath)
             filename_import[prefix].append(filename)
@@ -205,29 +205,18 @@ def import_files_to_questdb(files, questdb_host: str, questdb_port: str, state_f
     logger.info(f'        Dataframe is created with \
                 {len(df)} rows, input contains {len(files)} files')
     # import with python client
-    retry = 0
-    success = False
-    while not success and retry < max_retry:
-        try:
-            conf = f'http::addr={questdb_host}:{questdb_port};'
-            for prefix in dfDict:
-                df = dfDict[prefix]
-                with Sender.from_conf(conf) as sender:
-                    sender.dataframe(
-                        df,
-                        table_name=prefix,
-                        at='timestamp')
-        except IngressError as e:
-            logger.exception(
-                f'        Error during send dataframe to QuestDB: {e!r}')
-            # wait and retry
-            time.sleep(10)
-        else:
-            success = True
-
-    # Delete files if specified
-    if success:
-        for prefix in file_to_be_deleted:
+    for prefix in dfDict:
+        retry = 0
+        success = False
+        while not success and retry < max_retry:
+            df = dfDict[prefix]
+            df.to_csv('tmp_data.csv', index=False)
+            success = import_csv('tmp_data.csv', prefix, questdb_url)
+            if not success:
+                time.sleep(10)
+                retry += 1
+        os.remove('tmp_data.csv')
+        if success and prefix in file_to_be_deleted:
             if prefix not in state:
                 state[prefix] = filename_import[prefix]
             else:
@@ -237,9 +226,11 @@ def import_files_to_questdb(files, questdb_host: str, questdb_port: str, state_f
                     try:
                         os.remove(filepath)
                     except OSError as e:
-                        logger.warning(f"       Failed to delete {file}: {e}")
-        write_state(state, state_file)
-        logger.info(f"       Complete insert files to QuestDB")
-    else:
-        logger.error(
-            f"       Fail to insert files to QuestDB. Please check the log")
+                        logger.warning(
+                            f"       Failed to delete {file}: {e}")
+            write_state(state, state_file)
+            logger.info(
+                f"       Complete insert files for {prefix} to QuestDB")
+        else:
+            logger.error(
+                f"       Fail to insert files for {prefix} to QuestDB. Please check the log")

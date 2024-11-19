@@ -5,14 +5,14 @@ from helpers import list_files, read_state, import_files_to_questdb
 from questdb_helpers import get_tables, create_table
 
 # Configuration
-# BASE_DIR = 'C:\\Users\\svc_gkcoop2\\Downloads\\NEWDATA'
-BASE_DIR = '/mnt/c/Users/svc_gkcoop2/Downloads/NEWDATA'
+BASE_DIR = 'C:\\Users\\svc_gkcoop2\\Downloads\\NEWDATA'
 QUESTDB_API_HOST = 'gkcoop2'
 QUESTDB_API_PORT = '9000'
 QUESTDB_API_EXEC_URL = f'http://{QUESTDB_API_HOST}:{QUESTDB_API_PORT}/exec'
+QUESTDB_API_IMP_URL = f'http://{QUESTDB_API_HOST}:{QUESTDB_API_PORT}/imp'
 
 # we will ingest files with BATCH__SIZE at once
-BATCH_SIZE = 300  # from experiment, if we set more than this, it might cause buffer error
+BATCH_SIZE = 100  # from experiment, if we set more than this, it might cause buffer error
 # Persistent state for last imported file per subfolder
 STATE_FILE = 'state.json'
 
@@ -73,7 +73,7 @@ def main(delete_after_import=False, start_date=None, end_date=None):
         batch = files[i:i + BATCH_SIZE]
         logger.info(f'  working on batch( {i}, {i+BATCH_SIZE})')
         import_files_to_questdb(
-            batch, QUESTDB_API_HOST, QUESTDB_API_PORT, STATE_FILE, delete_after_import)
+            batch, QUESTDB_API_IMP_URL, STATE_FILE, delete_after_import)
         logger.info(
             f"Imported batch {i // BATCH_SIZE + 1} of {len(files) // BATCH_SIZE + 1}")
 

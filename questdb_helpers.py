@@ -79,3 +79,23 @@ def get_tables(questdb_url: str):
     except Exception as e:
         logger.exception(f'Cannot get table because of {e!r}')
         return []
+
+
+def import_csv(csv_path: str, table_name: str, questdb_url: str):
+    """ This function import data to QuestDB via REST Api """
+    try:
+        files = {
+            'data': open(csv_path, 'rb'),
+        }
+        url = f'{questdb_url}?create=false&name={table_name}'
+        response = requests.post(url, files=files)
+        logger.info(response.status_code, response.text)
+        if response.status_code == 200:
+            return True
+        else:
+            logger.error(f'Cannot import data from {csv_path}')
+            return False
+
+    except Exception as e:
+        logger.exception(f'Cannot import data from {csv_path}L {e!r}')
+        return False
