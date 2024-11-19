@@ -68,7 +68,7 @@ def parse_timestamp_from_filename(filename):
         raise ValueError("Timestamp not found or invalid in filename")
 
 
-def list_files(base_dir, start_date: str = None, end_date: str = None) -> list[tuple[str, str, str]]:
+def list_files(base_dir, start_date: str = None, end_date: str = None):
     """Lists files in a directory and its subdirectories, filtering by date range.
         RETURN: list of tuple, each is filename, filepath, prefix(table name)
     """
@@ -119,7 +119,7 @@ def list_files(base_dir, start_date: str = None, end_date: str = None) -> list[t
     return files_to_import, list(prefixes)
 
 
-def read_state(state_file_path: str = 'state.json') -> dict[str, list[str]]:
+def read_state(state_file_path: str = 'state.json'):
     """Reads the state file to determine the last imported file for each subfolder."""
     state = {}
     if os.path.exists(state_file_path):

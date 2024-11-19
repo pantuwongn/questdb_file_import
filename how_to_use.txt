@@ -9,6 +9,8 @@
 
     python main.py --delete --start-date=2024-01-01
 
+NOTE: need to set BASE_DIR variable in main.py to the folder contains all data source folders
+
 ===============================================================================================================================================================
 
 Run on WSL
@@ -29,14 +31,7 @@ Run on WSL
 
     python main.py --delete --start-date=2024-01-01
 
+Note: need to set BASE_DIR variable in main.py to the folder contains all data source folders. Also the path format must be from WSL.
+        for example, if the BASE_DIR on windows is c:\\data\\to_import on WSL it will be /mnt/c/data/to_import (change C:\\ to /mnt/c and change // to \)
+
 ===============================================================================================================================================================
-
-Run by docker 
-1. Build docker container
-    docker-compose build
-
-2. Start import by
-    docker-compose run app main.py [--delete] [--start-date=YYYY-MM-DD] [--end-date=YYYY-MM-DD]
-
-    where each argument ( [xxxx] ) is optional. For example, if you need to delete file after import, and need to insert from 2024-01-01
-    you can call
