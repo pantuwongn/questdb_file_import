@@ -5,7 +5,6 @@ from helpers import list_files, read_state, import_files_to_questdb
 from questdb_helpers import get_tables, create_table
 
 # Configuration
-BASE_DIR = 'C:\\Users\\svc_gkcoop2\\Downloads\\NEWDATA'
 QUESTDB_API_HOST = 'gkcoop2'
 QUESTDB_API_PORT = '9000'
 QUESTDB_API_EXEC_URL = f'http://{QUESTDB_API_HOST}:{QUESTDB_API_PORT}/exec'
@@ -43,17 +42,18 @@ logger.addHandler(file_handler)
 ####################
 
 
-def main(delete_after_import=False, start_date=None, end_date=None):
+def main(base_dir, delete_after_import=False, start_date=None, end_date=None):
     """Main entry point for importing files to QuestDB."""
 
     logger.info(f'========== Starting importing file with argument =========')
+    logger.info(f'--base-dir = {base_dir}')
     logger.info(f'--delete = {delete_after_import}')
     logger.info(f'--start-date = {start_date}')
     logger.info(f'--end-date = {end_date}')
     logger.info('=======================================================')
 
     # read state file to determine last imported file per subfolder
-    files, table_names = list_files(BASE_DIR, start_date, end_date)
+    files, table_names = list_files(base_dir, start_date, end_date)
     logger.info(f' Get files to be imported: {len(files)} files')
 
     if not files:
@@ -83,6 +83,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Import files to QuestDB and optionally delete them afterwards.')
 
+    parser.add_argument('--base-dir', type=str,
+                        default=False, help='Base directory that store dataset')
     parser.add_argument('--delete', action='store_true',
                         default=False, help='Delete files after successful import')
     parser.add_argument('--start-date', type=str, default=None,
@@ -91,5 +93,5 @@ if __name__ == "__main__":
                         help='End date for importing files (format: YYYY-MM-DD). If not specified, will import until the latest file.')
     args = parser.parse_args()
 
-    main(delete_after_import=args.delete,
+    main(base_dir=args.base_dir, delete_after_import=args.delete,
          start_date=args.start_date, end_date=args.end_date)

@@ -197,7 +197,7 @@ def import_files_to_questdb(files, questdb_url, state_file: str,
                 continue
 
             dfDict[prefix].loc[len(df)] = [str(
-                filename), prefix, timestamp.isoformat(), format_type, content]
+                filename), prefix, timestamp.strftime("%Y-%m-%dT%H:%M:%S.%fZ"), format_type, content]
 
             file_to_be_deleted[prefix].append(filepath)
             filename_import[prefix].append(filename)

@@ -89,13 +89,78 @@ def import_csv(csv_path: str, table_name: str, questdb_url: str):
         }
         url = f'{questdb_url}?create=false&name={table_name}'
         response = requests.post(url, files=files)
-        logger.info(response.status_code, response.text)
-        if response.status_code == 200:
+        if response.status_code == 200 and 'rows imported' in response.text.lower():
             return True
         else:
             logger.error(f'Cannot import data from {csv_path}')
             return False
 
     except Exception as e:
-        logger.exception(f'Cannot import data from {csv_path}L {e!r}')
+        logger.exception(f'Cannot import data from {csv_path}: {e}')
         return False
+
+
+def get_blob_tables(questdb_url: str):
+    """ This function returns all table name on QuestDB """
+    sql_statement = 'tables();'
+    try:
+        params = {
+            'query': sql_statement,
+            'count': 'true',
+        }
+
+        response = requests.get(questdb_url, params=params)
+
+        if response.status_code == 200:
+            tables = [d[1]
+                      for d in response.json()['dataset'] if d[2] == 'timestamp']
+            return tables
+        else:
+            logger.error(f'Cannot get table because of {response.text}')
+            return []
+    except Exception as e:
+        logger.exception(f'Cannot get table because of {e!r}')
+        return []
+
+
+def get_min_max_timestamp(questdb_url: str, table_name: str):
+    ''' This function queries and get the min and max timstamp of the blob tables
+    '''
+
+    sql_statement = f'select * from {table_name} LIMIT 1'
+    try:
+        params = {
+            'query': sql_statement,
+            'count': 'true',
+        }
+
+        response = requests.get(questdb_url, params=params)
+
+        if response.status_code == 200:
+            min_time = response.json()['dataset'][0][3]
+        else:
+            logger.error(f'Cannot get table because of {response.text}')
+            min_time = 'N/A'
+    except Exception as e:
+        logger.exception(f'Cannot get table because of {e!r}')
+        min_time = 'N/A'
+
+    sql_statement = f'select * from {table_name} LIMIT -1'
+    try:
+        params = {
+            'query': sql_statement,
+            'count': 'true',
+        }
+
+        response = requests.get(questdb_url, params=params)
+
+        if response.status_code == 200:
+            max_time = response.json()['dataset'][0][3]
+        else:
+            logger.error(f'Cannot get table because of {response.text}')
+            max_time = 'N/A'
+    except Exception as e:
+        logger.exception(f'Cannot get table because of {e!r}')
+        max_time = 'N/A'
+
+    return min_time, max_time
